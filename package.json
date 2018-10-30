@@ -1,9 +1,10 @@
 {
-  "name": "signal-protocol",
-  "repository": "https://github.com/elsehow/signal-protocol",
+  "name": "@throneless/libsignal-protocol",
+  "repository": "https://github.com/throneless-tech/signal-protocol",
   "description": "the signal ratcheting forward secrecy protocol, for node and browsers",
-  "author": "elsehow",
+  "author": "Josh King <josh@throneless.tech>",
   "contributors": [
+    "elsehow",
     "liliakai"
   ],
   "version": "0.1.3",
