@@ -93,10 +93,20 @@ SessionCipher.prototype = {
             result.set(new Uint8Array(encodedMsg), 1);
             result.set(new Uint8Array(mac, 0, 8), encodedMsg.byteLength + 1);
 
-            record.updateSessionState(session);
-            return this.storage.storeSession(address, record.serialize()).then(function() {
-              return result;
-            });
+            return this.storage.isTrustedIdentity(
+              this.remoteAddress.getName(), util.toArrayBuffer(session.indexInfo.remoteIdentityKey), this.storage.Direction.SENDING
+            ).then(function(trusted) {
+              if (!trusted) {
+                throw new Error('Identity key changed');
+              }
+            }).then(function() {
+              return this.storage.saveIdentity(this.remoteAddress.toString(), session.indexInfo.remoteIdentityKey);
+            }.bind(this)).then(function() {
+              record.updateSessionState(session);
+              return this.storage.storeSession(address, record.serialize()).then(function() {
+                return result;
+              });
+            }.bind(this));
           }.bind(this));
         }.bind(this));
       }.bind(this)).then(function(message) {
@@ -106,7 +116,9 @@ SessionCipher.prototype = {
           preKeyMsg.registrationId = myRegistrationId;
 
           preKeyMsg.baseKey = util.toArrayBuffer(session.pendingPreKey.baseKey);
-          preKeyMsg.preKeyId = session.pendingPreKey.preKeyId;
+          if (session.pendingPreKey.preKeyId) {
+            preKeyMsg.preKeyId = session.pendingPreKey.preKeyId;
+          }
           preKeyMsg.signedPreKeyId = session.pendingPreKey.signedKeyId;
 
           preKeyMsg.message = message;
@@ -139,6 +151,9 @@ SessionCipher.prototype = {
     return this.doDecryptWhisperMessage(buffer, session).then(function(plaintext) {
       return { plaintext: plaintext, session: session };
     }).catch(function(e) {
+      if (e.name === "MessageCounterError") {
+        return Promise.reject(e);
+      }
       errors.push(e);
       return this.decryptWithSessionList(buffer, sessionList, errors);
     }.bind(this));
@@ -154,10 +169,25 @@ SessionCipher.prototype = {
         var errors = [];
         return this.decryptWithSessionList(buffer, record.getSessions(), errors).then(function(result) {
           return this.getRecord(address).then(function(record) {
-            record.updateSessionState(result.session);
-            return this.storage.storeSession(address, record.serialize()).then(function() {
-              return result.plaintext;
-            });
+            if (result.session.indexInfo.baseKey !== record.getOpenSession().indexInfo.baseKey) {
+              record.archiveCurrentState();
+              record.promoteState(result.session);
+            }
+
+            return this.storage.isTrustedIdentity(
+              this.remoteAddress.getName(), util.toArrayBuffer(result.session.indexInfo.remoteIdentityKey), this.storage.Direction.RECEIVING
+            ).then(function(trusted) {
+              if (!trusted) {
+                throw new Error('Identity key changed');
+              }
+            }).then(function() {
+              return this.storage.saveIdentity(this.remoteAddress.toString(), result.session.indexInfo.remoteIdentityKey);
+            }.bind(this)).then(function() {
+              record.updateSessionState(result.session);
+              return this.storage.storeSession(address, record.serialize()).then(function() {
+                return result.plaintext;
+              });
+            }.bind(this));
           }.bind(this));
         }.bind(this));
       }.bind(this));
@@ -183,6 +213,7 @@ SessionCipher.prototype = {
           );
         }
         var builder = new SessionBuilder(this.storage, this.remoteAddress);
+        // isTrustedIdentity is called within processV3, no need to call it here
         return builder.processV3(record, preKeyProto).then(function(preKeyId) {
           var session = record.getSessionByBaseKey(preKeyProto.baseKey);
           return this.doDecryptWhisperMessage(
@@ -190,7 +221,7 @@ SessionCipher.prototype = {
           ).then(function(plaintext) {
             record.updateSessionState(session);
             return this.storage.storeSession(address, record.serialize()).then(function() {
-              if (preKeyId !== undefined) {
+              if (preKeyId !== undefined && preKeyId !== null) {
                 return this.storage.removePreKey(preKeyId);
               }
             }.bind(this)).then(function() {
@@ -257,13 +288,12 @@ SessionCipher.prototype = {
     });
   },
   fillMessageKeys: function(chain, counter) {
-    if (this.messageKeysLimit && Object.keys(chain.messageKeys).length >= this.messageKeysLimit) {
-      // console.log("Too many message keys for chain");
-      return Promise.resolve(); // Stalker, much?
-    }
-
     if (chain.chainKey.counter >= counter) {
       return Promise.resolve(); // Already calculated
+    }
+
+    if (counter - chain.chainKey.counter > 2000) {
+      throw new Error("Over 2000 messages into the future!");
     }
 
     if (chain.chainKey.key === undefined) {
@@ -347,7 +377,11 @@ SessionCipher.prototype = {
         if (record === undefined) {
           return undefined;
         }
-        return record.registrationId;
+        var openSession = record.getOpenSession();
+        if (openSession === undefined) {
+          return null;
+        }
+        return openSession.registrationId;
       });
     }.bind(this));
   },

@@ -14,7 +14,7 @@ SessionBuilder.prototype = {
   processPreKey: function(device) {
     return SessionLock.queueJobForNumber(this.remoteAddress.toString(), function() {
       return this.storage.isTrustedIdentity(
-          this.remoteAddress.getName(), device.identityKey
+          this.remoteAddress.getName(), device.identityKey, this.storage.Direction.SENDING
       ).then(function(trusted) {
         if (!trusted) {
           throw new Error('Identity key changed');
@@ -28,9 +28,12 @@ SessionBuilder.prototype = {
       }).then(function() {
         return Crypto.crypto.createKeyPair();
       }).then(function(baseKey) {
-        var devicePreKey = (device.preKey.publicKey);
+        var devicePreKey;
+        if (device.preKey) {
+          devicePreKey = device.preKey.publicKey;
+        }
         return this.initSession(true, baseKey, undefined, device.identityKey,
-          devicePreKey, device.signedPreKey.publicKey
+          devicePreKey, device.signedPreKey.publicKey, device.registrationId
         ).then(function(session) {
             session.pendingPreKey = {
                 preKeyId    : device.preKey.keyId,
@@ -46,14 +49,14 @@ SessionBuilder.prototype = {
           if (serialized !== undefined) {
             record = SessionRecord.deserialize(serialized);
           } else {
-            record = new SessionRecord(device.identityKey, device.registrationId);
+            record = new SessionRecord();
           }
 
           record.archiveCurrentState();
-          record.updateSessionState(session, device.registrationId);
+          record.updateSessionState(session);
           return Promise.all([
             this.storage.storeSession(address, record.serialize()),
-            this.storage.saveIdentity(this.remoteAddress.toString(), record.identityKey)
+            this.storage.saveIdentity(this.remoteAddress.toString(), session.indexInfo.remoteIdentityKey)
           ]);
         }.bind(this));
       }.bind(this));
@@ -62,7 +65,7 @@ SessionBuilder.prototype = {
   processV3: function(record, message) {
     var preKeyPair, signedPreKeyPair, session;
     return this.storage.isTrustedIdentity(
-        this.remoteAddress.getName(), message.identityKey.toArrayBuffer()
+        this.remoteAddress.getName(), message.identityKey.toArrayBuffer(), this.storage.Direction.RECEIVING
     ).then(function(trusted) {
         if (!trusted) {
             var e = new Error('Unknown identity key');
@@ -104,7 +107,7 @@ SessionBuilder.prototype = {
         }
         return this.initSession(false, preKeyPair, signedPreKeyPair,
             message.identityKey.toArrayBuffer(),
-            message.baseKey.toArrayBuffer(), undefined
+            message.baseKey.toArrayBuffer(), undefined, message.registrationId
         ).then(function(new_session) {
             // Note that the session is not actually saved until the very
             // end of decryptWhisperMessage ... to ensure that the sender
@@ -118,7 +121,7 @@ SessionBuilder.prototype = {
   },
   initSession: function(isInitiator, ourEphemeralKey, ourSignedKey,
                    theirIdentityPubKey, theirEphemeralPubKey,
-                   theirSignedPubKey) {
+                   theirSignedPubKey, registrationId) {
     return this.storage.getIdentityKeyPair().then(function(ourIdentityKey) {
         if (isInitiator) {
             if (ourSignedKey !== undefined) {
@@ -168,6 +171,7 @@ SessionBuilder.prototype = {
             return Crypto.HKDF(sharedSecret.buffer, new ArrayBuffer(32), "WhisperText");
         }).then(function(masterKey) {
             var session = {
+                registrationId: registrationId,
                 currentRatchet: {
                     rootKey                : masterKey[0],
                     lastRemoteEphemeralKey : theirSignedPubKey,
