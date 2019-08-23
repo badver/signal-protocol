@@ -7,8 +7,13 @@
     "elsehow",
     "liliakai"
   ],
-  "version": "0.1.4",
+  "version": "0.1.5",
   "main": "src/main.js",
+  "files": [
+    "/build",
+    "/proto",
+    "/src"
+  ],
   "license": "GPL-3.0",
   "dependencies": {
     "bytebuffer": "^5.0.1",
