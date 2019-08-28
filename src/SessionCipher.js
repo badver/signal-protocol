@@ -8,14 +8,7 @@ var ChainType = require('./ChainType.js');
 var protobuf = require('../build/protobufs_concat.js');
 var dcodeIO = require('../build/dcodeIO.js');
 
-function SessionCipher(storage, remoteAddress, options) {
-  options = options || {};
-
-  if (typeof options.messageKeysLimit === 'undefined') {
-    options.messageKeysLimit = 1000;
-  }
-
-  this.messageKeysLimit = options.messageKeysLimit;
+function SessionCipher(storage, remoteAddress) {
   this.remoteAddress = remoteAddress;
   this.storage = storage;
 }
@@ -411,7 +404,7 @@ SessionCipher.prototype = {
   deleteAllSessionsForDevice: function() {
     // Used in session reset scenarios, where we really need to delete
     var address = this.remoteAddress.toString();
-    return Internal.SessionLock.queueJobForNumber(address, function() {
+    return SessionLock.queueJobForNumber(address, function() {
       return this.getRecord(address).then(function(record) {
         if (record === undefined) {
           return;

@@ -36,10 +36,12 @@ SessionBuilder.prototype = {
           devicePreKey, device.signedPreKey.publicKey, device.registrationId
         ).then(function(session) {
             session.pendingPreKey = {
-                preKeyId    : device.preKey.keyId,
                 signedKeyId : device.signedPreKey.keyId,
                 baseKey     : baseKey.pubKey
             };
+            if (device.preKey) {
+              session.pendingPreKey.preKeyId = device.preKey.keyId;
+            }
             return session;
         });
       }.bind(this)).then(function(session) {

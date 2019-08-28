@@ -116,7 +116,6 @@ var SessionRecord = function() {
         serialize: function() {
             return jsonThing({
                 sessions       : this.sessions,
-                identityKey    : this.identityKey
             });
         },
         haveOpenSession: function() {
