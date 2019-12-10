@@ -50,6 +50,9 @@ myCrypto.crypto = {
       return crypto.subtle.sign( {name: 'HMAC', hash: 'SHA-256'}, key, data);
     });
   },
+  calculateMAC: function(key, data) {
+    return myCrypto.crypto.sign(key, data);
+  },
 
   hash: function(data) {
     return crypto.subtle.digest({name: 'SHA-512'}, data);
