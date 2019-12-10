@@ -7,7 +7,7 @@
     "elsehow",
     "liliakai"
   ],
-  "version": "0.1.6",
+  "version": "0.1.7",
   "main": "src/main.js",
   "files": [
     "/build",
@@ -32,11 +32,8 @@
     "grunt-contrib-concat": "^1.0.1",
     "grunt-contrib-connect": "^1.0.2",
     "grunt-contrib-jshint": "^1.1.0",
-    "grunt-jscs": "^3.0.1",
     "grunt-mocha-test": "^0.13.2",
-    "grunt-preen": "^1.0.0 ",
-    "grunt-saucelabs": "^9.0.0",
-    "mocha": "^3.2.0"
+    "mocha": "^6.2.2"
   },
   "scripts": {
     "build": "grunt build",
