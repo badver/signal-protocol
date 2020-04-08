@@ -1,22 +1,22 @@
- /*
+// checked 08-04-2020
+
+/*
   * jobQueue manages multiple queues indexed by device to serialize
   * session io ops on the database.
   */
 'use strict';
+
+var PQueue = require('p-queue').default;
 
 var SessionLock = {};
 
 var jobQueue = {};
 
 SessionLock.queueJobForNumber = function queueJobForNumber(number, runJob) {
-     var runPrevious = jobQueue[number] || Promise.resolve();
-     var runCurrent = jobQueue[number] = runPrevious.then(runJob, runJob);
-     runCurrent.then(function() {
-         if (jobQueue[number] === runCurrent) {
-             delete jobQueue[number];
-         }
-     });
-     return runCurrent;
+    jobQueue[number] = jobQueue[number] || new PQueue({ concurrency: 1 });
+    var queue = jobQueue[number];
+
+    return queue.add(runJob);
 };
 
 module.exports = SessionLock;
