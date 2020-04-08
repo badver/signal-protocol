@@ -10,7 +10,7 @@ var BaseKeyType = require('./BaseKeyType.js');
 var SessionRecord = function() {
     'use strict';
     var ARCHIVED_STATES_MAX_LENGTH = 40;
-    var OLD_RACHETS_MAX_LENGTH = 10;
+    var OLD_RATCHETS_MAX_LENGTH = 10;
     var SESSION_RECORD_VERSION = 'v1';
 
     var StaticByteBufferProto = new dcodeIO.ByteBuffer().__proto__;
@@ -116,6 +116,7 @@ var SessionRecord = function() {
         serialize: function() {
             return jsonThing({
                 sessions       : this.sessions,
+                version        : this.version
             });
         },
         haveOpenSession: function() {
@@ -126,7 +127,7 @@ var SessionRecord = function() {
         getSessionByBaseKey: function(baseKey) {
             var session = this.sessions[util.toString(baseKey)];
             if (session && session.indexInfo.baseKeyType === BaseKeyType.OURS) {
-                // console.log("Tried to lookup a session using our basekey");
+                console.log("Tried to lookup a session using our basekey");
                 return undefined;
             }
             return session;
@@ -225,7 +226,7 @@ var SessionRecord = function() {
             // Sending ratchets are always removed when we step because we never need them again
             // Receiving ratchets are added to the oldRatchetList, which we parse
             // here and remove all but the last ten.
-            while (session.oldRatchetList.length > OLD_RACHETS_MAX_LENGTH) {
+            while (session.oldRatchetList.length > OLD_RATCHETS_MAX_LENGTH) {
                 var index = 0;
                 var oldest = session.oldRatchetList[0];
                 for (var i = 0; i < session.oldRatchetList.length; i++) {
@@ -234,7 +235,7 @@ var SessionRecord = function() {
                         index = i;
                     }
                 }
-                // console.log("Deleting chain closed at", oldest.added);
+                console.log("Deleting chain closed at", oldest.added);
                 delete session[util.toString(oldest.ephemeralKey)];
                 session.oldRatchetList.splice(index, 1);
             }
@@ -252,7 +253,7 @@ var SessionRecord = function() {
                         oldestSession = session;
                     }
                 }
-                // console.log("Deleting session closed at", oldestSession.indexInfo.closed);
+                console.log("Deleting session closed at", oldestSession.indexInfo.closed);
                 delete sessions[util.toString(oldestBaseKey)];
             }
         },
