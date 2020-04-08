@@ -1,6 +1,4 @@
-/*
- * vim: ts=4:sw=4
- */
+// checked 08-04-2020
 
 var util = require('./helpers.js');
 var dcodeIO = require('../build/dcodeIO.js');

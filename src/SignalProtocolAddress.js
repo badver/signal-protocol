@@ -1,3 +1,5 @@
+// checked 08-04-2020
+
 function SignalProtocolAddress(name, deviceId) {
   this.name = name;
   this.deviceId = deviceId;
